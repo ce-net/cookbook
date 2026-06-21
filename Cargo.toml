@@ -1,0 +1,58 @@
+[package]
+name = "ce-cookbook"
+version = "0.1.0"
+edition = "2024"
+description = "Executable, CI-gated CE API recipes in Rust (ce-rs). See README.md."
+license = "MIT"
+publish = false
+
+# Each recipe is a standalone `cargo run --example <id>` target. They live under recipes/
+# (not the default examples/ dir) so the Rust and TypeScript recipes sit side by side.
+[[example]]
+name = "01_status"
+path = "recipes/01_status.rs"
+
+[[example]]
+name = "02_stream_blocks"
+path = "recipes/02_stream_blocks.rs"
+
+[[example]]
+name = "03_blob_object"
+path = "recipes/03_blob_object.rs"
+
+[[example]]
+name = "04_transfer"
+path = "recipes/04_transfer.rs"
+
+[[example]]
+name = "05_place_job"
+path = "recipes/05_place_job.rs"
+
+[[example]]
+name = "06_payment_channel"
+path = "recipes/06_payment_channel.rs"
+
+[[example]]
+name = "07_mesh_rpc"
+path = "recipes/07_mesh_rpc.rs"
+
+[[example]]
+name = "08_name_discovery"
+path = "recipes/08_name_discovery.rs"
+
+[[example]]
+name = "09_wallet"
+path = "recipes/09_wallet.rs"
+
+[[example]]
+name = "10_stream_txns"
+path = "recipes/10_stream_txns.rs"
+
+[dependencies]
+# In CI / a checkout this resolves to the sibling ce-rs repo. To pin against the published
+# crate or git instead, swap this for:
+#   ce-rs = { git = "https://github.com/ce-net/ce-rs" }
+ce-rs = { path = "../ce-rs" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+anyhow = "1"
+futures-util = "0.3"

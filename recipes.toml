@@ -1,0 +1,126 @@
+# CE Cookbook recipe registry — the single index the runner, CI, and docs all read.
+#
+# Each recipe is one Rust file + one TypeScript file teaching the same CE primitive. The runner
+# (run.sh) boots an ephemeral node and runs every recipe against it, asserting the RECIPE_OK
+# marker — that is the contract test catching API / SDK / OpenAPI drift.
+#
+# Fields:
+#   id          stable slug; matches the recipe filename stem (NN_<slug>)
+#   title       one-line human title
+#   teaches     what a reader learns
+#   endpoints   the exact HTTP endpoints exercised (must exist in the node API)
+#   rs_file     Rust recipe (cargo run --example <example>)
+#   ts_file     TypeScript recipe (tsx <ts_file>)
+#   rs_example  the [[example]] name in Cargo.toml
+#   needs       node | docker | two-nodes | channel-host  (what real infra a *full* run wants)
+#   marker      the stdout line the runner greps to assert success
+
+[[recipe]]
+id         = "01_status"
+title      = "Read node status, balance breakdown, and the capacity atlas"
+teaches    = "GET /status + GET /atlas — the first call every app makes"
+endpoints  = ["GET /status", "GET /atlas"]
+rs_file    = "recipes/01_status.rs"
+ts_file    = "recipes/01_status.ts"
+rs_example = "01_status"
+needs      = ["node"]
+marker     = "RECIPE_OK 01_status"
+
+[[recipe]]
+id         = "02_stream_blocks"
+title      = "Stream blocks live over SSE"
+teaches    = "GET /blocks/stream as a typed async iterable"
+endpoints  = ["GET /blocks/stream"]
+rs_file    = "recipes/02_stream_blocks.rs"
+ts_file    = "recipes/02_stream_blocks.ts"
+rs_example = "02_stream_blocks"
+needs      = ["node"]
+marker     = "RECIPE_OK 02_stream_blocks"
+
+[[recipe]]
+id         = "03_blob_object"
+title      = "Content-addressed storage: blob round-trip + chunked object"
+teaches    = "POST /blobs + GET /blobs/:hash; client-side chunking for big objects"
+endpoints  = ["POST /blobs", "GET /blobs/:hash"]
+rs_file    = "recipes/03_blob_object.rs"
+ts_file    = "recipes/03_blob_object.ts"
+rs_example = "03_blob_object"
+needs      = ["node"]
+marker     = "RECIPE_OK 03_blob_object"
+
+[[recipe]]
+id         = "04_transfer"
+title      = "Transfer credits (money model, base-unit strings, no floats)"
+teaches    = "POST /transfer; 1 credit = 10^18 base units carried as a decimal string"
+endpoints  = ["POST /transfer", "GET /status"]
+rs_file    = "recipes/04_transfer.rs"
+ts_file    = "recipes/04_transfer.ts"
+rs_example = "04_transfer"
+needs      = ["node"]                      # 402 on a zero-balance node is the expected outcome
+marker     = "RECIPE_OK 04_transfer"
+
+[[recipe]]
+id         = "05_place_job"
+title      = "Place a job and poll it through its lifecycle"
+teaches    = "POST /jobs/bid + GET /jobs/:id; bid -> running -> settled"
+endpoints  = ["POST /jobs/bid", "GET /jobs/:id"]
+rs_file    = "recipes/05_place_job.rs"
+ts_file    = "recipes/05_place_job.ts"
+rs_example = "05_place_job"
+needs      = ["docker"]                     # full run needs a Docker host; 402 otherwise
+marker     = "RECIPE_OK 05_place_job"
+
+[[recipe]]
+id         = "06_payment_channel"
+title      = "Payment channel: open -> sign receipt -> (host) close"
+teaches    = "POST /channels/open + /channels/receipt + /channels/:id/close micropayments"
+endpoints  = ["POST /channels/open", "POST /channels/receipt", "POST /channels/:id/close"]
+rs_file    = "recipes/06_payment_channel.rs"
+ts_file    = "recipes/06_payment_channel.ts"
+rs_example = "06_payment_channel"
+needs      = ["channel-host"]               # full run needs a host node + funded payer; 402 otherwise
+marker     = "RECIPE_OK 06_payment_channel"
+
+[[recipe]]
+id         = "07_mesh_rpc"
+title      = "Mesh request/reply (the canonical app RPC pattern)"
+teaches    = "POST /mesh/subscribe + /mesh/request + /mesh/reply; GET /mesh/messages"
+endpoints  = ["POST /mesh/subscribe", "GET /mesh/messages", "POST /mesh/request", "POST /mesh/reply"]
+rs_file    = "recipes/07_mesh_rpc.rs"
+ts_file    = "recipes/07_mesh_rpc.ts"
+rs_example = "07_mesh_rpc"
+needs      = ["two-nodes"]                  # full round-trip needs a peer; single-node slice runs always
+marker     = "RECIPE_OK 07_mesh_rpc"
+
+[[recipe]]
+id         = "08_name_discovery"
+title      = "Claim a name + advertise/find a service over the DHT"
+teaches    = "POST /names/claim + GET /names/:name; POST /discovery/advertise + GET /discovery/find/:s"
+endpoints  = ["POST /names/claim", "GET /names/:name", "POST /discovery/advertise", "GET /discovery/find/:service"]
+rs_file    = "recipes/08_name_discovery.rs"
+ts_file    = "recipes/08_name_discovery.ts"
+rs_example = "08_name_discovery"
+needs      = ["node"]
+marker     = "RECIPE_OK 08_name_discovery"
+
+[[recipe]]
+id         = "09_wallet"
+title      = "Read wallet balance + transaction history"
+teaches    = "GET /status breakdown + GET /transactions/:node_id paging"
+endpoints  = ["GET /status", "GET /transactions/:node_id"]
+rs_file    = "recipes/09_wallet.rs"
+ts_file    = "recipes/09_wallet.ts"
+rs_example = "09_wallet"
+needs      = ["node"]
+marker     = "RECIPE_OK 09_wallet"
+
+[[recipe]]
+id         = "10_stream_txns"
+title      = "Stream transactions live + read verifiable randomness (beacon)"
+teaches    = "GET /transactions/stream SSE + GET /beacon public randomness"
+endpoints  = ["GET /transactions/stream", "GET /beacon"]
+rs_file    = "recipes/10_stream_txns.rs"
+ts_file    = "recipes/10_stream_txns.ts"
+rs_example = "10_stream_txns"
+needs      = ["node"]
+marker     = "RECIPE_OK 10_stream_txns"

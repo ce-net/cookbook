@@ -1,0 +1,106 @@
+# CE Cookbook — contract-test CI.
+#
+# HUMAN STEP: copy this file into the ce repo at  ce/.github/workflows/cookbook.yml
+# (this subagent does NOT edit ce/.github itself). It assumes the workspace layout from
+# CLAUDE.md, with `ce/`, `ce-rs/`, `ce-ts/`, and `cookbook/` checked out as siblings.
+#
+# What it does: build the ce node, build the SDKs, boot an ephemeral node via cookbook/run.sh,
+# and run every recipe in both languages. A failure means the node API, an SDK, or the OpenAPI
+# spec drifted from the recipes — the whole point of this harness.
+
+name: cookbook
+
+on:
+  push:
+    paths:
+      - "cookbook/**"
+      - "ce-rs/**"
+      - "ce-ts/**"
+      - "ce/**"
+  pull_request:
+    paths:
+      - "cookbook/**"
+      - "ce-rs/**"
+      - "ce-ts/**"
+      - "ce/**"
+  workflow_dispatch: {}
+
+jobs:
+  recipes:
+    runs-on: ubuntu-22.04
+    steps:
+      # The workspace expects ce / ce-rs / ce-ts / cookbook as sibling dirs. Adjust the repo
+      # slugs / paths below to match how your CI checks out the monorepo or multi-repo setup.
+      - name: Checkout ce (node)
+        uses: actions/checkout@v4
+        with:
+          path: ce
+      - name: Checkout ce-rs (Rust SDK)
+        uses: actions/checkout@v4
+        with:
+          repository: ce-net/ce-rs
+          path: ce-rs
+      - name: Checkout ce-ts (TypeScript SDK)
+        uses: actions/checkout@v4
+        with:
+          repository: ce-net/ce-ts
+          path: ce-ts
+      - name: Checkout cookbook
+        uses: actions/checkout@v4
+        with:
+          repository: ce-net/cookbook
+          path: cookbook
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ce/target
+            cookbook/target
+          key: ${{ runner.os }}-cargo-cookbook-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build ce node (release)
+        working-directory: ce
+        run: cargo build --release --bin ce
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build @ce-net/sdk
+        working-directory: ce-ts
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install cookbook TS deps
+        working-directory: cookbook
+        run: npm install
+
+      # Compile-time contract gate: recipes must compile in both languages before we run them.
+      - name: Typecheck Rust recipes
+        working-directory: cookbook
+        run: cargo build --examples
+      - name: Typecheck TS recipes
+        working-directory: cookbook
+        run: npx tsc --noEmit
+
+      # Runtime contract gate: boot an ephemeral node and run every recipe against it.
+      # CE_BIN points the runner at the release binary we just built.
+      - name: Run cookbook recipes (boots an ephemeral node)
+        working-directory: cookbook
+        env:
+          CE_BIN: ${{ github.workspace }}/ce/target/release/ce
+        run: ./run.sh
+
+      # Recipes marked `needs = docker` (05) fully exercise a container only when a Docker host is
+      # on the mesh; on a plain runner they assert the documented 402 path. To run the docker slice
+      # end-to-end, add a step that runs the node WITH docker and a funded balance, then:
+      #   ./run.sh --lang both
+      # (left out by default so CI stays fast and hermetic).

@@ -1,0 +1,21 @@
+{
+  "name": "ce-cookbook",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Executable, CI-gated CE API recipes in TypeScript (@ce-net/sdk). See README.md.",
+  "author": "Leif Rydenfalk <ledamecrydenfalk@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "recipe": "tsx"
+  },
+  "dependencies": {
+    "@ce-net/sdk": "file:../ce-ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.22.4",
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
+  }
+}
