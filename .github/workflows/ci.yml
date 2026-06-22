@@ -1,0 +1,101 @@
+# CE Cookbook — cross-platform build + test CI.
+#
+# This is the portability gate: the Rust recipes (cargo) and the TypeScript recipes (tsc) must
+# build on Linux, macOS, AND Windows. It is intentionally separate from cookbook.yml, which is the
+# runtime contract test that boots a real ephemeral node (Linux-only, fast/hermetic).
+#
+# Path deps: this repo path-depends on ce-rs (Rust SDK) and ce-ts (TypeScript SDK). CI checks them
+# out as siblings (../ce-rs, ../ce-ts) so the path deps in Cargo.toml / package.json resolve.
+# ce-cap / ce-identity live inside the ce repo; nothing here path-depends on them, but ce is
+# checked out as ../ce as well so the layout matches CLAUDE.md if a recipe ever pulls it in.
+
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch: {}
+
+jobs:
+  # Rust recipes: build + (compile-only) test on all three OSes.
+  rust:
+    name: rust (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout cookbook
+        uses: actions/checkout@v4
+        with:
+          path: cookbook
+
+      # Sibling path deps. The Rust crate path-depends on ce-rs.
+      - name: Checkout ce-rs (Rust SDK)
+        uses: actions/checkout@v4
+        with:
+          repository: ce-net/ce-rs
+          path: ce-rs
+      # ce hosts ce-cap / ce-identity; checked out so the workspace layout matches CLAUDE.md.
+      - name: Checkout ce (node)
+        uses: actions/checkout@v4
+        with:
+          repository: ce-net/ce
+          path: ce
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: cookbook
+
+      - name: Build recipes (all examples)
+        working-directory: cookbook
+        run: cargo build --examples
+
+      - name: Test
+        working-directory: cookbook
+        run: cargo test
+
+  # TypeScript recipes: typecheck on all three OSes.
+  typescript:
+    name: typescript (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout cookbook
+        uses: actions/checkout@v4
+        with:
+          path: cookbook
+
+      # The TS recipes path-depend on @ce-net/sdk (the ce-ts repo) via package.json.
+      - name: Checkout ce-ts (TypeScript SDK)
+        uses: actions/checkout@v4
+        with:
+          repository: ce-net/ce-ts
+          path: ce-ts
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build @ce-net/sdk
+        working-directory: ce-ts
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install cookbook deps
+        working-directory: cookbook
+        run: npm install
+
+      - name: Typecheck recipes
+        working-directory: cookbook
+        run: npx tsc --noEmit

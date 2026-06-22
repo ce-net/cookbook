@@ -9,6 +9,7 @@ cookbook/
 ├── recipes/            # NN_<slug>.rs  +  NN_<slug>.ts   (Rust and TS, side by side)
 ├── recipes.toml        # the registry: id, title, teaches, endpoints, needs, marker
 ├── run.sh              # the runner = the contract test (boots a node, runs every recipe)
+├── run.ps1             # Windows/PowerShell equivalent of run.sh (boots ce.exe)
 ├── ci.yml              # GitHub Actions job (copy into ce/.github/workflows/ — see below)
 ├── Cargo.toml          # Rust recipes as `cargo run --example` targets (dep: ../ce-rs)
 ├── package.json        # TS recipes via `tsx` (dep: file:../ce-ts)
@@ -119,6 +120,17 @@ cd cookbook
 ./run.sh --keep-node     # leave the node up for debugging
 ```
 
+On Windows (or anywhere with PowerShell 7+), use the byte-equivalent `run.ps1` instead — it boots
+`ce.exe`, runs the same recipes, and asserts the same `RECIPE_OK` markers:
+
+```powershell
+cd cookbook
+./run.ps1                # both languages
+./run.ps1 -Lang rs       # Rust only
+./run.ps1 -Lang ts       # TypeScript only
+./run.ps1 -KeepNode      # leave the node up for debugging
+```
+
 The runner:
 
 1. boots a throwaway node — `ce --data-dir <tmp> start --no-mine --ephemeral --no-mdns --api-port <18900-18999> --port <14900-14999>` (a **unique port** and an **in-memory data dir**, so it never touches a node you already have on `:8844`),
@@ -141,9 +153,18 @@ Recipes 4/5/6 pass via their documented zero-balance / single-node paths (402 / 
 
 ## CI
 
-`ci.yml` is a ready-to-use GitHub Actions job that builds the node + both SDKs, then runs `run.sh`.
+Two CI surfaces:
 
-> **Human step:** copy `cookbook/ci.yml` into the `ce` repo at `ce/.github/workflows/cookbook.yml`. This subagent intentionally does not edit `ce/.github`. Adjust the checkout repo slugs/paths to match your monorepo or multi-repo layout (the job assumes `ce` / `ce-rs` / `ce-ts` / `cookbook` as sibling checkouts).
+- **`.github/workflows/ci.yml`** (in this repo) — the cross-platform portability gate. A 3-OS matrix
+  (`ubuntu-latest`, `macos-latest`, `windows-latest`, `fail-fast: false`) that builds the Rust
+  recipes (`cargo build --examples` + `cargo test`) and typechecks the TS recipes (`tsc --noEmit`)
+  on all three OSes. Sibling path deps (`ce-rs`, `ce-ts`, and `ce` for the `ce-cap` / `ce-identity`
+  layout) are checked out via per-dep `actions/checkout` steps. This runs automatically.
+
+- **`ci.yml`** (repo root, the runtime contract test) — builds the node + both SDKs, then runs
+  `run.sh` against a real ephemeral node. Linux-only and hermetic.
+
+  > **Human step:** copy root `ci.yml` into the `ce` repo at `ce/.github/workflows/cookbook.yml`. This subagent intentionally does not edit `ce/.github`. Adjust the checkout repo slugs/paths to match your monorepo or multi-repo layout (the job assumes `ce` / `ce-rs` / `ce-ts` / `cookbook` as sibling checkouts).
 
 ---
 
