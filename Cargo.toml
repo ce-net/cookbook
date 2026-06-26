@@ -3,7 +3,7 @@ name = "ce-cookbook"
 version = "0.1.0"
 edition = "2024"
 description = "Executable, CI-gated CE API recipes in Rust (ce-rs). See README.md."
-license = "MIT"
+license = "AGPL-3.0-only"
 publish = false
 
 # Each recipe is a standalone `cargo run --example <id>` target. They live under recipes/
